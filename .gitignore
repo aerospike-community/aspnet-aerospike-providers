@@ -1,0 +1,9 @@
+Debug
+Release
+bin
+obj
+*.user
+*.suo
+*.nupkg
+packages
+TestResults/

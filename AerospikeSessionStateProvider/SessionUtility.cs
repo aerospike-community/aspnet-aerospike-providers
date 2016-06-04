@@ -6,35 +6,41 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Web;
+using System.Web.SessionState;
 using Aerospike.Client;
 
 namespace Aerospike.Web
 {
 	internal static class SessionUtility
 	{
-		internal static void AppendRemoveItemsInList(SessionStateItems items, List<string> list)
+		internal static SessionStateStoreData CreateStoreData(HttpContext context, ISessionStateItemCollection items, int sessionTimeoutMinutes)
 		{
-			if (items.GetDeletedKeys() != null && items.GetDeletedKeys().Count != 0)
-			{
-				foreach (string delKey in items.GetDeletedKeys())
-				{
-					list.Add(delKey);
-				}
-			}
+			// Context will be null in unit tests.
+			HttpStaticObjectsCollection staticObjects = (context != null) ? SessionStateUtility.GetSessionStaticObjects(context) : new HttpStaticObjectsCollection();
+			return new SessionStateStoreData(items, staticObjects, sessionTimeoutMinutes);
 		}
 
-		internal static void AppendUpdatedOrNewItemsInList(SessionStateItems items, Dictionary<string,Value> map)
+		internal static Dictionary<string, Value> Serialize(ISessionStateItemCollection items)
 		{
-			if (items.GetModifiedKeys() != null && items.GetModifiedKeys().Count != 0)
+			if (items == null)
 			{
-				foreach (string key in items.GetModifiedKeys())
+				return new Dictionary<string, Value>();
+			}
+
+			Dictionary<string, Value> map = new Dictionary<string, Value>(items.Keys.Count);
+
+			using (MemoryStream memoryStream = new MemoryStream())
+			{
+				foreach (string key in items.Keys)
 				{
-					map[key] = Value.Get(GetBytesFromObject(items[key]));
+					map[key] = Value.Get(Serialize(memoryStream, items[key]));
 				}
 			}
+			return map;
 		}
 
-		internal static byte[] GetBytesFromObject(object data)
+		internal static byte[] Serialize(MemoryStream memoryStream, object data)
 		{
 			if (data == null)
 			{
@@ -42,24 +48,22 @@ namespace Aerospike.Web
 			}
 
 			BinaryFormatter binaryFormatter = new BinaryFormatter();
-			using (MemoryStream memoryStream = new MemoryStream())
-			{
-				binaryFormatter.Serialize(memoryStream, data);
-				return memoryStream.ToArray();
-			}
+			memoryStream.SetLength(0);
+			binaryFormatter.Serialize(memoryStream, data);
+			return memoryStream.ToArray();
 		}
 
-		internal static object GetObjectFromBytes(byte[] dataAsBytes)
+		internal static object Deserialize(byte[] bytes)
 		{
-			if (dataAsBytes == null)
+			if (bytes == null)
 			{
 				return null;
 			}
 
 			BinaryFormatter binaryFormatter = new BinaryFormatter();
-			using (MemoryStream memoryStream = new MemoryStream(dataAsBytes, 0, dataAsBytes.Length))
+
+			using (MemoryStream memoryStream = new MemoryStream(bytes, 0, bytes.Length))
 			{
-				memoryStream.Seek(0, System.IO.SeekOrigin.Begin);
 				return (object)binaryFormatter.Deserialize(memoryStream);
 			}
 		}

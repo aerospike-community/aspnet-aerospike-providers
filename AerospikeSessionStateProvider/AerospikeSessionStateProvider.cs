@@ -5,6 +5,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Web;
 using System.Web.SessionState;
 using Aerospike.Client;
@@ -14,11 +16,9 @@ namespace Aerospike.Web
 	public class AerospikeSessionStateProvider : SessionStateStoreProviderBase
 	{
 		private static ProviderConfiguration config;
-		private static AerospikeClientCache cache;
+		private static AerospikeCache cache;
 		private static object configLock = new object();
 		private static object cacheLock = new object();
-		private static object lastException = new object();
-		private const int FROM_MIN_TO_SEC = 60;
 
 		public override void Initialize(string name, System.Collections.Specialized.NameValueCollection nameValuePairs)
 		{
@@ -70,7 +70,7 @@ namespace Aerospike.Web
 		/// <summary>
 		/// Get cache. Useful for testing.
 		/// </summary>
-		internal static AerospikeClientCache Cache
+		internal static AerospikeCache Cache
 		{
 			get { return cache; }
 		}
@@ -86,7 +86,14 @@ namespace Aerospike.Web
 				{
 					if (cache == null)
 					{
-						cache = new AerospikeClientCache(config);
+						if (config.UseUDF)
+						{
+							cache = new AerospikeCacheUDF(config);
+						}
+						else
+						{
+							cache = new AerospikeCacheDefault(config);
+						}
 					}
 				}
 			}
@@ -121,51 +128,35 @@ namespace Aerospike.Web
 
 		public override SessionStateStoreData GetItem(HttpContext context, string id, out bool locked, out TimeSpan lockAge, out object lockId, out SessionStateActions actions)
 		{
-			LogUtility.LogInfo("GetItem => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
-
 			try
 			{
 				OpenCache();
-				return cache.ReadSessionData(id, config.RequestTimeout, out locked, out lockAge, out lockId, out actions);
+				return cache.ReadSessionData(false, context, id, config.RequestTimeout, out locked, out lockAge, out lockId, out actions);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("GetItemFromSessionStore => {0}", e.ToString());
-				locked = false;
-				lockId = null;
-				lockAge = TimeSpan.Zero;
-				actions = 0;
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("GetItem: {0}", e.ToString());
 				}
-				return null;
+				throw;
 			}
 		}
 
 		public override SessionStateStoreData GetItemExclusive(HttpContext context, string id, out bool locked, out TimeSpan lockAge, out object lockId, out SessionStateActions actions)
 		{
-			LogUtility.LogInfo("GetItemExclusive => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
-
 			try
 			{
 				OpenCache();
-				return cache.ReadSessionDataExclusive(id, config.RequestTimeout, out locked, out lockAge, out lockId, out actions);
+				return cache.ReadSessionData(true, context, id, config.RequestTimeout, out locked, out lockAge, out lockId, out actions);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("GetItemFromSessionStore => {0}", e.ToString());
-				locked = false;
-				lockId = null;
-				lockAge = TimeSpan.Zero;
-				actions = 0;
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("GetItemExclusive: {0}", e.ToString());
 				}
-				return null;
+				throw;
 			}
 		}
 
@@ -173,107 +164,81 @@ namespace Aerospike.Web
 		{
 			try
 			{
-				if (LastException == null)
+				int sessionTimeout = item.Timeout * 60;
+
+				OpenCache();
+
+				if (newItem)
 				{
-					if (newItem)
-					{
-						SessionStateItems sessionItems = null;
-						if (item != null && item.Items != null)
-						{
-							sessionItems = (SessionStateItems)item.Items;
-						}
-						else
-						{
-							sessionItems = new SessionStateItems();
-						}
-
-						if (sessionItems["SessionStateActions"] != null)
-						{
-							sessionItems.Remove("SessionStateActions");
-						}
-
-						OpenCache();
-						cache.WriteSessionData(id, sessionItems, item.Timeout * FROM_MIN_TO_SEC);
-						LogUtility.LogInfo("SetAndReleaseItemExclusive => Session Id: {0}, Session provider object: {1} => created new item in session.", id, this.GetHashCode());
-					}
-					else
-					{
-						if (item != null && item.Items != null)
-						{
-							if (item.Items["SessionStateActions"] != null)
-							{
-								item.Items.Remove("SessionStateActions");
-							}
-							OpenCache();
-							cache.UpdateSessionData(id, (long)lockId, (SessionStateItems)item.Items, item.Timeout * FROM_MIN_TO_SEC);
-							LogUtility.LogInfo("SetAndReleaseItemExclusive => Session Id: {0}, Session provider object: {1} => updated item in session.", id, this.GetHashCode());
-						}
-					}
+					cache.WriteSessionData(id, sessionTimeout, item.Items);
+				}
+				else
+				{
+					cache.UpdateSessionData(id, (long)lockId, sessionTimeout, item.Items);
 				}
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("SetAndReleaseItemExclusive => {0}", e.ToString());
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("SetAndReleaseItemExclusive: {0}", e.ToString());
 				}
+				throw;
 			}
 		}
 
 		public override void ReleaseItemExclusive(HttpContext context, string id, object lockId)
 		{
+			if (lockId == null)
+			{
+				return;
+			}
+
 			try
 			{
 				// This check is required for unit tests to work
 				int sessionTimeout;
 				if (context != null && context.Session != null)
 				{
-					sessionTimeout = context.Session.Timeout * FROM_MIN_TO_SEC;
+					sessionTimeout = context.Session.Timeout * 60;
 				}
 				else
 				{
 					sessionTimeout = config.SessionTimeout;
 				}
 
-				if (LastException == null && lockId != null)
-				{
-					LogUtility.LogInfo("ReleaseItemExclusive => Session Id: {0}, Session provider object: {1} => For lockId: {2}.", id, this.GetHashCode(), lockId);
-					OpenCache();
-					cache.ReleaseItemExclusive(id, (long)lockId, sessionTimeout);
-				}
+				OpenCache();
+				cache.ReleaseItemExclusive(id, (long)lockId, sessionTimeout);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("ReleaseItemExclusive => {0}", e.ToString());
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("ReleaseItemExclusive: {0}", e.ToString());
 				}
+				throw;
 			}
 		}
 
 		public override void RemoveItem(HttpContext context, string id, object lockId, SessionStateStoreData item)
 		{
+			if (lockId == null)
+			{
+				return;
+			}
+
 			try
 			{
-				if (LastException == null && lockId != null)
-				{
-					LogUtility.LogInfo("RemoveItem => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
-					OpenCache();
-					cache.RemoveItem(id, (long)lockId);
-				}
+				OpenCache();
+				cache.RemoveItem(id, (long)lockId);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("RemoveItem => {0}", e.ToString());
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("RemoveItem: {0}", e.ToString());
 				}
+				throw;
 			}
 		}
 
@@ -281,30 +246,32 @@ namespace Aerospike.Web
 		{
 			try
 			{
-				if (LastException == null)
-				{
-					LogUtility.LogInfo("CreateUninitializedItem => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
-					SessionStateItems items = new SessionStateItems();
-					items["SessionStateActions"] = SessionStateActions.InitializeItem;
-					OpenCache();
-					cache.WriteSessionData(id, items, timeout * FROM_MIN_TO_SEC);
-				}
+				OpenCache();
+				cache.CreateSessionData(id, timeout * 60);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("CreateUninitializedItem => {0}", e.ToString());
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("CreateUninitializedItem: {0}", e.ToString());
 				}
+				throw;
 			}
 		}
 
 		public override SessionStateStoreData CreateNewStoreData(HttpContext context, int timeout)
 		{
-			LogUtility.LogInfo("CreateNewStoreData => Session provider object: {0}.", this.GetHashCode());
-			return new SessionStateStoreData(new SessionStateItems(), new HttpStaticObjectsCollection(), timeout);
+			ISessionStateItemCollection items;
+
+			if (config != null && config.UseUDF)
+			{
+				items = new SessionStateItems();
+			}
+			else
+			{
+				items = new SessionStateItemCollection();
+			}
+			return SessionUtility.CreateStoreData(context, items, timeout);
 		}
 
 		public override bool SetItemExpireCallback(SessionStateItemExpireCallback expireCallback)
@@ -316,42 +283,16 @@ namespace Aerospike.Web
 		{
 			try
 			{
-				if (LastException == null)
-				{
-					LogUtility.LogInfo("ResetItemTimeout => Session Id: {0}, Session provider object: {1}.", id, this.GetHashCode());
-					OpenCache();
-					cache.ResetItemTimeout(id, config.SessionTimeout);
-				}
+				OpenCache();
+				cache.ResetItemTimeout(id, config.SessionTimeout);
 			}
 			catch (Exception e)
 			{
-				LogUtility.LogError("ResetItemTimeout => {0}", e.ToString());
-				LastException = e;
-				if (config == null || config.ThrowOnError)
+				if (LogUtility.Enabled)
 				{
-					throw;
+					LogUtility.LogError("ResetItemTimeout: {0}", e.ToString());
 				}
-			}
-		}
-
-		/// <summary>
-		/// Throwing an exception from a session state provider will break customer applications.
-		/// If an exception occurs, store in HttpContext and return null.
-		/// The user can later check LastException when received null from a session operation.
-		/// </summary>
-		public static Exception LastException
-		{
-			get
-			{
-				return (HttpContext.Current != null)? (Exception)HttpContext.Current.Items[lastException] : null;
-			}
-
-			set
-			{
-				if (HttpContext.Current != null)
-				{
-					HttpContext.Current.Items[lastException] = value;
-				}
+				throw;
 			}
 		}
 	}

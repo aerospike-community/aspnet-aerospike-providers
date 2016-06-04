@@ -26,10 +26,10 @@ namespace Aerospike.Web
 		public int MaxConnsPerNode { get; set; }
 		public int MaxSocketIdle { get; set; }
 		public int TendInterval { get; set; }
-		public bool ThrowOnError { get; set; }
 		public int RequestTimeout { get; set; }
 		public int SessionTimeout { get; set; }
 		public string ApplicationName { get; set; }
+		public bool UseUDF { get; set; }
 
 		internal ProviderConfiguration(NameValueCollection config)
 		{
@@ -47,7 +47,7 @@ namespace Aerospike.Web
 			MaxConnsPerNode = GetIntSettings(config, "maxConnsPerNode", 300);
 			MaxSocketIdle = GetIntSettings(config, "maxSocketIdleInSeconds", 55);
 			TendInterval = GetIntSettings(config, "tendIntervalInMilliseconds", 1000);
-			ThrowOnError = GetBoolSettings(config, "throwOnError", true);
+			UseUDF = GetBoolSettings(config, "useUDF", false);
 
 			HttpRuntimeSection httpRuntimeSection = ConfigurationManager.GetSection("system.web/httpRuntime") as HttpRuntimeSection;
 			RequestTimeout = (int)httpRuntimeSection.ExecutionTimeout.TotalSeconds;

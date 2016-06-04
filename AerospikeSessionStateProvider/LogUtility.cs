@@ -12,6 +12,8 @@ namespace Aerospike.Web
 	{
 		public static TextWriter logger = null;
 
+		public static bool Enabled { get { return logger != null; } }
+
 		public static void LogWarning(string msg, params object[] args)
 		{
 			Log("[Warning]", msg, args);

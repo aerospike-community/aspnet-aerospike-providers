@@ -21,9 +21,20 @@ namespace Aerospike.Web.Test
 		public static Args args = Args.Instance;
 
 		[TestMethod]
-		public void TestSessionWriteCycle()
+		public void DefaultSessionWriteCycle()
 		{
-			string sessionId = CreateConfiguration();
+			SessionWriteCycle(false);
+		}
+
+		[TestMethod]
+		public void UDFSessionWriteCycle()
+		{
+			SessionWriteCycle(true);
+		}
+
+		private void SessionWriteCycle(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.CreateUninitializedItem(null, sessionId, 10);
 
@@ -34,7 +45,7 @@ namespace Aerospike.Web.Test
 			SessionStateStoreData storeData = session.GetItemExclusive(null, sessionId, out locked, out lockAge, out lockId, out actions);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -50,7 +61,7 @@ namespace Aerospike.Web.Test
 			Assert.IsFalse(locked);
 			IDictionary map = (IDictionary)record.GetValue("SessionItems");
 			Assert.AreEqual(1, map.Count);
-			object val = SessionUtility.GetObjectFromBytes((byte[])map["key"]);
+			object val = SessionUtility.Deserialize((byte[])map["key"]);
 			Assert.AreEqual("value", val);
 
 			session.ResetItemTimeout(null, sessionId);
@@ -59,20 +70,31 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestSessionReadCycle()
+		public void DefaultSessionReadCycle()
 		{
-			string sessionId = CreateConfiguration();
+			SessionReadCycle(false);
+		}
+
+		[TestMethod]
+		public void UDFSessionReadCycle()
+		{
+			SessionReadCycle(true);
+		}
+
+		private void SessionReadCycle(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.CreateUninitializedItem(null, sessionId, 10);
 
 			bool locked;
 			TimeSpan lockAge;
 			object lockId;
-			SessionStateActions actions;			
-            SessionStateStoreData storeData = session.GetItem(null, sessionId, out locked, out lockAge, out lockId, out actions);
+			SessionStateActions actions;
+			SessionStateStoreData storeData = session.GetItem(null, sessionId, out locked, out lockAge, out lockId, out actions);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -86,9 +108,20 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestSessionTimoutChangeFromGlobalAspx()
+		public void DefaultSessionTimoutChangeFromGlobalAspx()
 		{
-			string sessionId = CreateConfiguration();
+			SessionTimoutChangeFromGlobalAspx(false);
+		}
+
+		[TestMethod]
+		public void UDFSessionTimoutChangeFromGlobalAspx()
+		{
+			SessionTimoutChangeFromGlobalAspx(true);
+		}
+
+		private void SessionTimoutChangeFromGlobalAspx(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.CreateUninitializedItem(null, sessionId, 10);
 
@@ -103,17 +136,17 @@ namespace Aerospike.Web.Test
 			session.SetAndReleaseItemExclusive(null, sessionId, storeData, lockId, false);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
-			
+
 			int sessionTimeout = record.GetInt("SessionTimeout");
 			Assert.AreEqual(300, sessionTimeout);
 
 			IDictionary map = (IDictionary)record.GetValue("SessionItems");
 			Assert.AreEqual(1, map.Count);
-			object val = SessionUtility.GetObjectFromBytes((byte[])map["key"]);
+			object val = SessionUtility.Deserialize((byte[])map["key"]);
 			Assert.AreEqual("value", val);
 
 			session.EndRequest(null);
@@ -129,25 +162,47 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestReleaseItemExclusiveWithNullLockId()
+		public void DefaultReleaseItemExclusiveWithNullLockId()
 		{
-			string sessionId = CreateConfiguration();
+			ReleaseItemExclusiveWithNullLockId(false);
+		}
+
+		[TestMethod]
+		public void UDFReleaseItemExclusiveWithNullLockId()
+		{
+			ReleaseItemExclusiveWithNullLockId(true);
+		}
+
+		private void ReleaseItemExclusiveWithNullLockId(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.ReleaseItemExclusive(null, sessionId, null);
 			AerospikeSessionStateProvider.CloseCache();
 		}
 
 		[TestMethod]
-		public void TestRemoveItemWithNullLockId()
+		public void DefaultRemoveItemWithNullLockId()
 		{
-			string sessionId = CreateConfiguration();
+			RemoveItemWithNullLockId(false);
+		}
+
+		[TestMethod]
+		public void UDFRemoveItemWithNullLockId()
+		{
+			RemoveItemWithNullLockId(true);
+		}
+
+		private void RemoveItemWithNullLockId(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.RemoveItem(null, sessionId, null, null);
 			AerospikeSessionStateProvider.CloseCache();
 		}
 
 		[TestMethod]
-		public void TestInitializeWithNullConfig()
+		public void DefaultInitializeWithNullConfig()
 		{
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 
@@ -162,17 +217,28 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestCreateNewStoreDataWithEmptyStore()
+		public void DefaultCreateNewStoreDataWithEmptyStore()
 		{
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
-			SessionStateStoreData sssd = new SessionStateStoreData(new SessionStateItems(), null, 900);
+			SessionStateStoreData sssd = new SessionStateStoreData(new SessionStateItemCollection(), null, 900);
 			Assert.AreEqual(true, CompareSessionStateStoreData(session.CreateNewStoreData(null, 900), sssd));
 		}
 
 		[TestMethod]
-		public void TestGetItemNullFromStore()
+		public void DefaultGetItemNullFromStore()
 		{
-			CreateConfiguration(); ;
+			GetItemNullFromStore(false);
+		}
+
+		[TestMethod]
+		public void UDFGetItemNullFromStore()
+		{
+			GetItemNullFromStore(true);
+		}
+
+		private void GetItemNullFromStore(bool useUDF)
+		{
+			CreateConfiguration(useUDF);
 			string sessionId = "session-id";
 			bool locked;
 			TimeSpan lockAge;
@@ -192,9 +258,20 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestGetItemRecordLocked()
+		public void DefaultGetItemRecordLocked()
 		{
-			string sessionId = CreateConfiguration();
+			GetItemRecordLocked(false);
+		}
+
+		[TestMethod]
+		public void UDFGetItemRecordLocked()
+		{
+			GetItemRecordLocked(true);
+		}
+
+		private void GetItemRecordLocked(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.CreateUninitializedItem(null, sessionId, 10);
 
@@ -205,7 +282,7 @@ namespace Aerospike.Web.Test
 			SessionStateStoreData storeData = session.GetItemExclusive(null, sessionId, out locked, out lockAge, out lockId, out actions);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -218,15 +295,26 @@ namespace Aerospike.Web.Test
 			Assert.IsTrue(locked);
 			Assert.AreEqual(1, (long)lockId);
 
-			session.ReleaseItemExclusive(null, sessionId, lockId);			
+			session.ReleaseItemExclusive(null, sessionId, lockId);
 			session.EndRequest(null);
 			AerospikeSessionStateProvider.CloseCache();
 		}
 
 		[TestMethod]
-		public void TestRemoveItem()
+		public void DefaultRemoveItem()
 		{
-			string sessionId = CreateConfiguration();
+			RemoveItem(false);
+		}
+
+		[TestMethod]
+		public void UDFRemoveItem()
+		{
+			RemoveItem(true);
+		}
+
+		private void RemoveItem(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			session.CreateUninitializedItem(null, sessionId, 10);
 
@@ -238,7 +326,7 @@ namespace Aerospike.Web.Test
 			session.RemoveItem(null, sessionId, lockId, storeData);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -248,16 +336,27 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestSetAndReleaseItemExclusiveNewItemNullItems()
+		public void DefaultSetAndReleaseItemExclusiveNewItemNullItems()
 		{
-			string sessionId = CreateConfiguration();
+			SetAndReleaseItemExclusiveNewItemNullItems(false);
+		}
+
+		[TestMethod]
+		public void UDFSetAndReleaseItemExclusiveNewItemNullItems()
+		{
+			SetAndReleaseItemExclusiveNewItemNullItems(true);
+		}
+
+		private void SetAndReleaseItemExclusiveNewItemNullItems(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			SessionStateStoreData data = new SessionStateStoreData(null, null, 15);
 
 			session.SetAndReleaseItemExclusive(null, sessionId, data, null, true);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -269,19 +368,30 @@ namespace Aerospike.Web.Test
 		}
 
 		[TestMethod]
-		public void TestSetAndReleaseItemExclusiveNewValidItems()
+		public void DefaultSetAndReleaseItemExclusiveNewValidItems()
 		{
-			string sessionId = CreateConfiguration();
+			SetAndReleaseItemExclusiveNewValidItems(false);
+		}
+
+		[TestMethod]
+		public void UDFSetAndReleaseItemExclusiveNewValidItems()
+		{
+			SetAndReleaseItemExclusiveNewValidItems(true);
+		}
+
+		private void SetAndReleaseItemExclusiveNewValidItems(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 
-			SessionStateItems items = new SessionStateItems();
+			SessionStateItemCollection items = new SessionStateItemCollection();
 			items["session-key"] = "session-value";
 			SessionStateStoreData data = new SessionStateStoreData(items, null, 15);
 
 			session.SetAndReleaseItemExclusive(null, sessionId, data, null, true);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 			AerospikeClient client = cache.Client;
 			Key key = cache.GetKey(sessionId);
 			Record record = client.Get(null, key);
@@ -291,27 +401,37 @@ namespace Aerospike.Web.Test
 
 			IDictionary map = (IDictionary)record.GetValue("SessionItems");
 			Assert.AreEqual(1, map.Count);
-			object val = SessionUtility.GetObjectFromBytes((byte[])map["session-key"]);
+			object val = SessionUtility.Deserialize((byte[])map["session-key"]);
 			Assert.AreEqual("session-value", val);
 
 			AerospikeSessionStateProvider.CloseCache();
 		}
 
 		[TestMethod]
-		public void TestSetAndReleaseItemExclusiveNullItems()
+		public void DefaultSetAndReleaseItemExclusiveNullItems()
 		{
-			string sessionId = CreateConfiguration();
+			SetAndReleaseItemExclusiveNullItems(false);
+		}
+
+		[TestMethod]
+		public void UDFSetAndReleaseItemExclusiveNullItems()
+		{
+			SetAndReleaseItemExclusiveNullItems(true);
+		}
+
+		private void SetAndReleaseItemExclusiveNullItems(bool useUDF)
+		{
+			string sessionId = CreateConfiguration(useUDF);
 			AerospikeSessionStateProvider session = new AerospikeSessionStateProvider();
 			SessionStateStoreData data = new SessionStateStoreData(null, null, 15);
 
-			session.SetAndReleaseItemExclusive(null, sessionId, data, 7, false);
+			session.SetAndReleaseItemExclusive(null, sessionId, data, 7L, false);
 
 			ProviderConfiguration config = AerospikeSessionStateProvider.Configuration;
-			AerospikeClientCache cache = AerospikeSessionStateProvider.Cache;
-			Assert.IsNull(cache);
+			AerospikeCache cache = AerospikeSessionStateProvider.Cache;
 		}
 
-		private string CreateConfiguration()
+		private string CreateConfiguration(bool useUDF)
 		{
 			System.Collections.Specialized.NameValueCollection config = new System.Collections.Specialized.NameValueCollection();
 			config.Add("host", args.host);
@@ -319,6 +439,7 @@ namespace Aerospike.Web.Test
 			config.Add("set", args.set);
 			config.Add("user", args.user);
 			config.Add("password", args.password);
+			config.Add("useUDF", useUDF? "true" : "false");
 
 			AerospikeSessionStateProvider.SetConfiguration(config);
 			return Guid.NewGuid().ToString();

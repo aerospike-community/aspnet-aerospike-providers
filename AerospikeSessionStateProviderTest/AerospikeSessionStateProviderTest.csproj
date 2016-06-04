@@ -6,7 +6,7 @@
     <ProductVersion>
     </ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{72EE4F1D-B39D-4E45-A27E-E9741D16A2EA}</ProjectGuid>
+    <ProjectGuid>{355EBD8B-5356-49B3-8D48-E92617E98DAA}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Aerospike.Web.Test</RootNamespace>
@@ -33,11 +33,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="AerospikeClient, Version=3.2.0.0, Culture=neutral, PublicKeyToken=26e01ad6884636d6, processorArchitecture=MSIL">
+    <Reference Include="AerospikeClient">
       <HintPath>..\packages\Aerospike.Client.3.2.2\lib\net40\AerospikeClient.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
-    <Reference Include="Neo.Lua, Version=5.3.0.0, Culture=neutral, PublicKeyToken=fdb0cd4fe8a6e3b2, processorArchitecture=MSIL">
+    <Reference Include="Neo.Lua">
       <HintPath>..\packages\NeoLua.0.9.14\lib\net4\Neo.Lua.dll</HintPath>
     </Reference>
     <Reference Include="System" />
@@ -64,18 +64,18 @@
     <Compile Include="TestSessionState.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\AerospikeSessionStateProvider\AerospikeSessionStateProvider.csproj">
-      <Project>{482DFAFE-04C9-42C1-A3A1-C7CBB49148D4}</Project>
-      <Name>AerospikeSessionStateProvider</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AerospikeSessionStateProvider\AerospikeSessionStateProvider.csproj">
+      <Project>{870726BA-53CE-4866-8AD3-E3B1B3D6E0A7}</Project>
+      <Name>AerospikeSessionStateProvider</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

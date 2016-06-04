@@ -9,16 +9,20 @@ function GetItemExclusive(rec, ticks)
     rec["Locked"] = 1
     rec["LockId"] = rec["LockId"] + 1
     rec["LockTime"] = ticks
-	record.set_ttl(rec, rec["SessionTimeout"])
+    record.set_ttl(rec, rec["SessionTimeout"])
     aerospike:update(rec)
   end
 
   return list {wasLocked, rec["LockId"], rec["LockTime"], rec["SessionTimeout"], rec["SessionItems"]}
 end
 
-function UpdateItemExclusive(rec, lockId, ttl, delItems, modItems)
+function MergeItemExclusive(rec, lockId, ttl, delItems, modItems)
   if rec["LockId"] == lockId then
     local m = rec["SessionItems"]
+
+	if m == nil then
+	  m = map()
+	end
 	
 	for k in list.iterator(delItems) do
 	  map.remove(m, k);
@@ -28,16 +32,25 @@ function UpdateItemExclusive(rec, lockId, ttl, delItems, modItems)
       m[k] = v
     end
     
-	rec["SessionItems"] = m
-	rec["SessionTimeout"] = ttl
-	rec["Locked"] = 0
+    rec["SessionItems"] = m
+    rec["SessionTimeout"] = ttl
+    rec["Locked"] = 0
+    aerospike:update(rec)
+  end
+end
+
+function WriteItemExclusive(rec, lockId, ttl, items)
+  if rec["LockId"] == lockId then    
+    rec["SessionItems"] = items
+    rec["SessionTimeout"] = ttl
+    rec["Locked"] = 0
     aerospike:update(rec)
   end
 end
 
 function ReleaseItemExclusive(rec, lockId, ttl)
   if rec["LockId"] == lockId then
-	rec["SessionTimeout"] = ttl
+    rec["SessionTimeout"] = ttl
     rec["Locked"] = 0
     aerospike:update(rec)
   end
@@ -45,7 +58,7 @@ end
 
 function ResetItemTimeout(rec, ttl)
   if aerospike:exists(rec) then
-	rec["SessionTimeout"] = ttl
+    rec["SessionTimeout"] = ttl
     aerospike:update(rec)
   end
 end

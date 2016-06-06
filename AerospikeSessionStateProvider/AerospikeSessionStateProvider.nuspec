@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>Aerospike.SessionStateProvider</id>
+    <version>1.0.0</version>
+    <title>Aerospike ASP.NET Session State Provider</title>
+    <authors>Aerospike</authors>
+    <owners>Aerospike</owners>
+    <licenseUrl>https://github.com/aerospike/aspnet-aerospike-providers/blob/master/LICENSE.md</licenseUrl>
+    <projectUrl>https://github.com/aerospike/aspnet-aerospike-providers</projectUrl>
+    <iconUrl>http://wordpress-www.s3-us-west-1.amazonaws.com/wp-content/uploads/2015/03/bryan-as.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Aerospike implementation of the ASP.NET Session State Provider</description>
+    <copyright>Copyright 2016 Aerospike, Inc.</copyright>
+    <tags>Aerospike database C# ASP.NET Session</tags>
+    <frameworkAssemblies>
+      <frameworkAssembly assemblyName="System" />
+      <frameworkAssembly assemblyName="System.Core" />
+      <frameworkAssembly assemblyName="System.Numerics" />
+      <frameworkAssembly assemblyName="System.Web" />
+      <frameworkAssembly assemblyName="System.configuration" />
+    </frameworkAssemblies>
+    <dependencies>
+      <dependency id="Aerospike.Client" version="3.2.2" />
+    </dependencies>
+  </metadata>
+</package>

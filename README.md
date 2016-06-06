@@ -43,4 +43,4 @@ maxConnsPerNode     | 300   | Max number of connections allowed per Aerospike se
 maxSocketIdle       | 55    | Max seconds sockets are allowed to stay unused in connection pool.
 tendInterval        | 1000  | Milliseconds between cluster tend requests to determine cluster state.
 useUDF              | false | Should server-side Lua user defined functions be used.  By default, this provider uses a combination of Aerospike get and put commands when the session lock needs to be checked on writes.  When useUDF is true, this provider uses a single Lua function call when the session lock needs to be checked on writes.
-log                 |       | Method that creates a TextWriter log instance.  Log is disabled by default.  Format: <ClassName>.<MethodName>  Method Signature: public static TextWriter <ClassName>.<MethodName>()
+log                 |       | Method that creates a TextWriter log instance.  Log is disabled by default.  Format: `<ClassName>.<MethodName>`  Method Signature: `public static TextWriter <ClassName>.<MethodName>()`

@@ -16,7 +16,7 @@ Configure `web.config` to use Aerospike's session state provider.
   <sessionState mode="Custom" customProvider="AerospikeSessionStateProvider">
     <providers>
       <add name="AerospikeSessionStateProvider" 
-           type="Aerospike.Web.AerospikeSessionStateProvider" 
+           type="Aerospike.Web.AerospikeSessionStateProvider"
            host="host1:3000,host2:3000"
 		   namespace="test"
 		   set="test"
@@ -30,16 +30,17 @@ The full set of Aerospike configuration arguments are:
 
 Name | Default | Description
 ---- | ------- | -----------
-host                              | localhost:3000 | HostName/Port combinations separated by commas.
-user                              |       | User name for servers configured with authentication.
-password                          |       | Password for servers configured with authentication.
-namespace                         | test  | Namespace to store session data.
-set                               | test  | Set name to store session data.
-connectionTimeoutInMilliseconds   | 1000  | Max milliseconds allowed to make socket connection to an Aerospike server.
-operationTimeoutInMilliseconds    | 100   | Max milliseconds allowed to read or write session data.
-maxRetries                        | 1     | Max number of retries if read or write fails.
-sleepBetweenRetriesInMilliseconds | 10    | Milliseconds to sleep before attempting a retry.
-maxConnsPerNode                   | 300   | Max number of connections allowed per Aerospike server node.
-maxSocketIdleInSeconds            | 55    | Max seconds sockets are allowed to stay unused in connection pool.
-tendIntervalInMilliseconds        | 1000  | Milliseconds between cluster tend requests to determine cluster state.
-useUDF | false | Should server-side Lua user defined functions be used.  By default, this provider uses a combination of Aerospike get and put commands when the session lock needs to be checked on writes.  When useUDF is true, this provider uses a single Lua function call when the session lock needs to be checked on writes.
+host                | localhost:3000 | HostName/Port combinations separated by commas.
+user                |       | User name for servers configured with authentication.
+password            |       | Password for servers configured with authentication.
+namespace           | test  | Namespace to store session data.
+set                 | test  | Set name to store session data.
+connectionTimeout   | 1000  | Max milliseconds allowed to make socket connection to an Aerospike server.
+operationTimeout    | 100   | Max milliseconds allowed to read or write session data.
+maxRetries          | 1     | Max number of retries if read or write fails.
+sleepBetweenRetries | 10    | Milliseconds to sleep before attempting a retry.
+maxConnsPerNode     | 300   | Max number of connections allowed per Aerospike server node.
+maxSocketIdle       | 55    | Max seconds sockets are allowed to stay unused in connection pool.
+tendInterval        | 1000  | Milliseconds between cluster tend requests to determine cluster state.
+useUDF              | false | Should server-side Lua user defined functions be used.  By default, this provider uses a combination of Aerospike get and put commands when the session lock needs to be checked on writes.  When useUDF is true, this provider uses a single Lua function call when the session lock needs to be checked on writes.
+log                 |       | Method that creates a TextWriter log instance.  Log is disabled by default.  Format: <ClassName>.<MethodName>  Method Signature: public static TextWriter <ClassName>.<MethodName>()

@@ -31,13 +31,11 @@ namespace Aerospike.Web
 		internal AerospikeClient client;
 		private string ns;
 		private string set;
-		private string app;
 
 		public AerospikeCache(ProviderConfiguration config)
 		{
 			this.ns = config.Namespace;
 			this.set = config.Set;
-			this.app = config.ApplicationName + '_';
 
 			ClientPolicy policy = new ClientPolicy();
 			policy.user = config.User;
@@ -86,6 +84,7 @@ namespace Aerospike.Web
 		public void CreateSessionData(string sessionId, int sessionTimeout)
 		{
 			WritePolicy policy = new WritePolicy(client.writePolicyDefault);
+			policy.sendKey = true;
 			policy.expiration = sessionTimeout;
 
 			Key key = GetKey(sessionId);
@@ -102,6 +101,7 @@ namespace Aerospike.Web
 		{
 			Dictionary<string, Value> map = SessionUtility.Serialize(items);
 			WritePolicy policy = new WritePolicy(client.writePolicyDefault);
+			policy.sendKey = true;
 			policy.expiration = sessionTimeout;
 
 			Key key = GetKey(sessionId);
@@ -139,7 +139,7 @@ namespace Aerospike.Web
 
 		public Key GetKey(string sessionId)
 		{
-			return new Key(ns, set, app + sessionId);
+			return new Key(ns, set, sessionId);
 		}
 
 		public void Close()

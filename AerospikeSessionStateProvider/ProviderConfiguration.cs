@@ -28,7 +28,6 @@ namespace Aerospike.Web
 		public int TendInterval { get; set; }
 		public int RequestTimeout { get; set; }
 		public int SessionTimeout { get; set; }
-		public string ApplicationName { get; set; }
 		public bool UseUDF { get; set; }
 
 		internal ProviderConfiguration(NameValueCollection config)
@@ -40,13 +39,13 @@ namespace Aerospike.Web
 			Password = GetStringSettings(config, "password", null);
 			Namespace = GetStringSettings(config, "namespace", "test");
 			Set = GetStringSettings(config, "set", "test");
-			ConnectionTimeout = GetIntSettings(config, "connectionTimeoutInMilliseconds", 1000);
-			OperationTimeout = GetIntSettings(config, "operationTimeoutInMilliseconds", 100);
+			ConnectionTimeout = GetIntSettings(config, "connectionTimeout", 1000);
+			OperationTimeout = GetIntSettings(config, "operationTimeout", 100);
 			MaxRetries = GetIntSettings(config, "maxRetries", 1);
-			SleepBetweenRetries = GetIntSettings(config, "sleepBetweenRetriesInMilliseconds", 10);
+			SleepBetweenRetries = GetIntSettings(config, "sleepBetweenRetries", 10);
 			MaxConnsPerNode = GetIntSettings(config, "maxConnsPerNode", 300);
-			MaxSocketIdle = GetIntSettings(config, "maxSocketIdleInSeconds", 55);
-			TendInterval = GetIntSettings(config, "tendIntervalInMilliseconds", 1000);
+			MaxSocketIdle = GetIntSettings(config, "maxSocketIdle", 55);
+			TendInterval = GetIntSettings(config, "tendInterval", 1000);
 			UseUDF = GetBoolSettings(config, "useUDF", false);
 
 			HttpRuntimeSection httpRuntimeSection = ConfigurationManager.GetSection("system.web/httpRuntime") as HttpRuntimeSection;
@@ -55,40 +54,9 @@ namespace Aerospike.Web
 			SessionStateSection sessionStateSection = (SessionStateSection)WebConfigurationManager.GetSection("system.web/sessionState");
 			SessionTimeout = (int)sessionStateSection.Timeout.TotalSeconds;
 
-			ApplicationName = GetStringSettings(config, "applicationName", null);
-			
-			if (ApplicationName == null)
-			{
-				try
-				{
-					ApplicationName = HostingEnvironment.ApplicationVirtualPath;
-
-					if (String.IsNullOrEmpty(ApplicationName))
-					{
-						ApplicationName = System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName;
-
-						int indexOfDot = ApplicationName.IndexOf('.');
-						if (indexOfDot != -1)
-						{
-							ApplicationName = ApplicationName.Remove(indexOfDot);
-						}
-					}
-
-					if (String.IsNullOrEmpty(ApplicationName))
-					{
-						ApplicationName = "/";
-					}
-
-				}
-				catch (Exception e)
-				{
-					ApplicationName = "/";
-					LogUtility.LogInfo(e.Message);
-				}
-			}
-
-			LogUtility.LogInfo("Host: {0}, User: {1}, ConnectionTimeout: {2}, OperationTimeout: {3}, ApplicationName: {4}",
-					Host, User, ConnectionTimeout, OperationTimeout, ApplicationName);
+			LogUtility.LogInfo("host: {0}, user: {1}, namespace: {2}, set: {3}, connectionTimeout: {4}, operationTimeout: {5}, maxRetries: {6}, sleepBetweenRetries: {7}, maxConnsPerNode: {8}, maxSocketIdle: {9}, tendInterval: {10}, useUDF: {11}",
+				Host, User, Namespace, Set, ConnectionTimeout, OperationTimeout, MaxRetries, SleepBetweenRetries,
+				MaxConnsPerNode, MaxSocketIdle, TendInterval, UseUDF);
 		}
 
 		// 1) Use key available inside AppSettings
@@ -191,41 +159,51 @@ namespace Aerospike.Web
 
 		internal static void EnableLoggingIfParametersAvailable(NameValueCollection config)
 		{
-			string LoggingClassName = GetStringSettings(config, "loggingClassName", null);
-			string LoggingMethodName = GetStringSettings(config, "loggingMethodName", null);
+			string logCreator = GetStringSettings(config, "log", null);
 
-			if (!string.IsNullOrEmpty(LoggingClassName) && !string.IsNullOrEmpty(LoggingMethodName))
+			if (string.IsNullOrEmpty(logCreator))
 			{
-				// Find 'Type' that is same as fully qualified class name if not found than also don't throw error and ignore case while searching
-				Type LoggingClass = Type.GetType(LoggingClassName, throwOnError: false, ignoreCase: true);
-
-				if (LoggingClass == null)
-				{
-					// If class name is not assembly qualified name than look for class in all assemblies one by one
-					LoggingClass = GetClassFromAssemblies(LoggingClassName);
-				}
-
-				if (LoggingClass == null)
-				{
-					// All ways of loading assembly are failed so throw
-					throw new TypeLoadException(string.Format(Aerospike.Web.Properties.Resources.ClassNotFound, LoggingClassName));
-				}
-
-				MethodInfo LoggingMethod = LoggingClass.GetMethod(LoggingMethodName, new Type[] { });
-				if (LoggingMethod == null)
-				{
-					throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodNotFound, LoggingMethodName, LoggingClassName));
-				}
-				if ((LoggingMethod.Attributes & MethodAttributes.Static) == 0)
-				{
-					throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodNotStatic, LoggingMethodName, LoggingClassName));
-				}
-				if (!(typeof(System.IO.TextWriter)).IsAssignableFrom(LoggingMethod.ReturnType))
-				{
-					throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodWrongReturnType, LoggingMethodName, LoggingClassName, "System.IO.TextWriter"));
-				}
-				LogUtility.logger = (TextWriter)LoggingMethod.Invoke(null, new object[] { });
+				return;
 			}
+
+			string[] logCreatorList = logCreator.Split('.');
+			string className = logCreatorList[0];
+			string methodName = logCreatorList[1];
+
+			if (string.IsNullOrEmpty(className) || string.IsNullOrEmpty(methodName))
+			{
+				return;
+			}
+
+			// Find 'Type' that is same as fully qualified class name if not found than also don't throw error and ignore case while searching
+			Type logClass = Type.GetType(className, throwOnError: false, ignoreCase: true);
+
+			if (logClass == null)
+			{
+				// If class name is not assembly qualified name than look for class in all assemblies one by one
+				logClass = GetClassFromAssemblies(className);
+			}
+
+			if (logClass == null)
+			{
+				// All ways of loading assembly are failed so throw
+				throw new TypeLoadException(string.Format(Aerospike.Web.Properties.Resources.ClassNotFound, className));
+			}
+
+			MethodInfo logMethod = logClass.GetMethod(methodName, new Type[] { });
+			if (logMethod == null)
+			{
+				throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodNotFound, methodName, className));
+			}
+			if ((logMethod.Attributes & MethodAttributes.Static) == 0)
+			{
+				throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodNotStatic, methodName, className));
+			}
+			if (!(typeof(System.IO.TextWriter)).IsAssignableFrom(logMethod.ReturnType))
+			{
+				throw new MissingMethodException(string.Format(Aerospike.Web.Properties.Resources.MethodWrongReturnType, methodName, className, "System.IO.TextWriter"));
+			}
+			LogUtility.logger = (TextWriter)logMethod.Invoke(null, new object[] { });
 		}
 
 		private static Type GetClassFromAssemblies(string ClassName)
